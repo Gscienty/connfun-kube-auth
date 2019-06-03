@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: connfun-auth-mongo-master-deploy
+    namespace: default
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: connfun-auth-mongo-master
+            release: dev
+    template:
+        metadata:
+            labels:
+                app: connfun-auth-mongo-master
+                release: dev
+        spec:
+            containers:
+            - name: connfun-auth-mongo-master
+              image: mongo:latest
+              ports:
+              - name: mongo
+                protocol: TCP
+                containerPort: 27017
+              volumeMounts:
+              - name: connfun-auth-mongo-volume
+                mountPath: /data/db
+            volumes:
+            - name: connfun-auth-mongo-volume
+              hostPath:
+                  path: /home/gaoxiaochuan/mongo
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: connfun-auth-mongo-master-service
+    labels:
+        name: connfun-auth-mongo-master-service
+spec:
+    selector:
+        app: connfun-auth-mongo-master
+    ports:
+    - port: 27017
+      protocol: TCP
+      targetPort: 27017

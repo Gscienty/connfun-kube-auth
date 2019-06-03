@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: connfun-auth-redis-master-deploy
+    namespace: default
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: connfun-auth-redis-master
+            release: dev
+    template:
+        metadata:
+            labels:
+                app: connfun-auth-redis-master
+                release: dev
+        spec:
+            containers:
+            - name: connfun-auth-redis-master
+              image: redis:latest
+              ports:
+              - name: redis
+                protocol: TCP
+                containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: connfun-auth-redis-master-service
+    labels:
+        name: connfun-auth-redis-master-service
+spec:
+    selector:
+        app: connfun-auth-redis-master
+    ports:
+    - port: 6379
+      protocol: TCP
+      targetPort: 6379
