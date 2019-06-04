@@ -5,6 +5,7 @@ from flask import request, jsonify
 import os
 import requests
 from bson.objectid import ObjectId
+import time
 
 '''
     Header Content-Type: application/json
@@ -40,6 +41,7 @@ def wechat_oauth2_access():
     req_uri += '&grant_type=authorization_code'
     res = requests.get(req_uri)
     content = res.json()
+    content['expire'] = time.time() + int(content['expires_in'])
 
     db = mongo_client_builder.build_mongo_client()
     wechat_account = db.wechat_account.find_one({ 'wechat_openid': content['openid'] })
@@ -82,13 +84,16 @@ def wechat_oauth2_fresh():
     wechat_account = db.wechat_account.find_one({ 'refer_account_id': ObjectId(common_account_id) })
     if not wechat_account:
         return jsonify({ 'msg': 'wechat account not existed' }), 404
+    if wechat_account['wechat_token']['expire'] <= time.time():
+        return jsonify({ 'msg': 'timeout' }), 400
 
     req_uri = 'https://api.weixin.qq.com/sns/oauth2/refresh_token'
     req_uri += '?appid={}'.format(os.getenv('WECHAT_APP_ID'))
     req_uri += '&grant_type=refresh_token'
-    req_uri += '&refresh_token={}'.format(wechat_account['wechat_token']['token'])
+    req_uri += '&refresh_token={}'.format(wechat_account['wechat_token']['refresh_token'])
     res = requests.get(req_uri)
     content = res.json()
+    content['expire'] = time.time() + int(content['expires_in'])
     db.wechat_account.update({ 'refer_account_id': ObjectId(common_account_id) },
             { '$set': { 'wechat_token': content } })
     return jsonify({ 'msg': 'success' }), 200
@@ -107,9 +112,11 @@ def wechat_oauth2_userinfo():
     wechat_account = db.wechat_account.find_one({ 'refer_account_id': ObjectId(common_account_id) })
     if not wechat_account:
         return jsonify({ 'msg': 'wechat account not existed' }), 404
+    if wechat_account['wechat_token']['expire'] <= time.time():
+        return jsonify({ 'msg': 'timeout' }), 400
 
     req_uri = 'https://api.weixin.qq.com/sns/userinfo'
-    req_uri += '?access_token={}'.format(wechat_account['wechat_token']['token'])
+    req_uri += '?access_token={}'.format(wechat_account['wechat_token']['access_token'])
     req_uri += '&openid={}'.format(wechat_account['wechat_openid'])
     req_uri += '&lang=zh_CN'
     res = requests.get(req_uri)
@@ -133,10 +140,17 @@ def wechat_oauth2_verify():
     wechat_account = db.wechat_account.find_one({ 'refer_account_id': ObjectId(common_account_id) })
     if not wechat_account:
         return jsonify({ 'msg': 'wechat account not existed' }), 404
+    if wechat_account['wechat_token']['expire'] <= time.time():
+        return jsonify({ 'msg': 'timeout' }), 400
 
     req_uri = 'https://api.weixin.qq.com/sns/auth'
-    req_uri += '?access_token={}'.format(wechat_account['wechat_token']['token'])
+    req_uri += '?access_token={}'.format(wechat_account['wechat_token']['access_token'])
     req_uri += '&openid={}'.format(wechat_account['wechat_openid'])
     res = requests.get(req_uri)
-    return jsonify(res.json()), 200
+    content = res.json()
+
+    if content['errcode'] == 0:
+        return jsonify({ 'msg': 'success' }), 200
+    else:
+        return jsonify({ 'msg': 'verify failed' }), 400
 
