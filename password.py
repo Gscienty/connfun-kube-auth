@@ -7,6 +7,7 @@ import time
 import os
 import uuid
 import account_temporary_locked
+from bson.objectid import ObjectId
 
 '''
 required:
@@ -32,7 +33,7 @@ def register_password_account():
 
     hash_type = request.json['hash_algo'].lower()
     if hash_type == 'md5':
-        hashed_password = hashlib.md5(request.json['password']).hexdigest().upper()
+        hashed_password = hashlib.md5(request.json['password'].encode(encoding='UTF-8')).hexdigest().upper()
     else:
         return jsonify({ 'msg': 'not support {} hash algorithm'.format(hash_type) }), 400
 
@@ -62,7 +63,7 @@ def set_password_account_new_password():
 
     hash_type = request.json['hash_algo'].lower()
     if hash_type == 'md5':
-        hashed_password = hashlib.md5(request.json['password']).hexdigest().upper()
+        hashed_password = hashlib.md5(request.json['password'].encode(encoding="UTF-8")).hexdigest().upper()
     else:
         return jsonify({ 'msg': 'not support {} hash algorithm'.format(hash_type) }), 400
 
@@ -80,36 +81,11 @@ def set_password_account_new_password():
 '''
     Header Content-Type: application/json
     Body {
-        "id": "...",
-        "profile": { ... }
-    }
-'''
-@app.app.route('/password/set-profile', methods=[ 'POST' ])
-def set_password_profile():
-    mongo_client = mongo_client_builder.build_mongo_client()
-
-    if mongo_client.user_profile.find_one({ 'refer_account_id': request.json['id'] }):
-        mongo_client.user_profile.update({
-            'refer_account_id': request.json['id']
-            }, {
-                '$set': request.json['profile']
-                })
-    else:
-        profile = request.json['profile']
-        profile['refer_account_id'] = request.json['id']
-        mongo_client.user_profile.insert_one(profile)
-
-    return jsonify({ 'msg': 'success' })
-
-
-'''
-    Header Content-Type: application/json
-    Body {
         "username": "...",
         "password": "..."
     }
 '''
-@app.app.route('/password/sign-in')
+@app.app.route('/password/sign-in', methods=[ 'POST' ])
 def password_account_sign_in():
     mongo_client = mongo_client_builder.build_mongo_client()
 
@@ -122,19 +98,19 @@ def password_account_sign_in():
         return jsonify({ 'msg': 'locked' }), 401
 
     if account['hash_algo'] == 'md5':
-        hashed_password = hashlib.md5(request.json['password']).hexdigest().upper()
+        hashed_password = hashlib.md5(request.json['password'].encode(encoding='UTF-8')).hexdigest().upper()
         if hashed_password != account['password']:
-            account_temporary_locked.account_temporary_attempt_times_inc(common_account['_id'], 24 * 60 * 60)
+            account_temporary_locked.account_temporary_attempt_times_inc(str(common_account['_id']), 24 * 60 * 60)
             return jsonify({ 'msg': 'password error' }), 400
     else:
         return jsonify({ 'msg': 'unsupport hash algo' }), 500
 
-    attempt_times = account_temporary_locked.account_temporary_attempt_times(common_account['_id'])
+    attempt_times = account_temporary_locked.account_temporary_attempt_times(str(common_account['_id']))
     if attempt_times >= int(os.getenv('ATTEMPT_SIGN_IN_TIMES')):
         return jsonify({ 'msg': 'account locked' }), 403
 
-    key = uuid.uuid5(common_account['_id'], '{}'.format(time.time()))
-    session_stored.password_session_store(key, common_account['_id'])
+    key = uuid.uuid5(uuid.NAMESPACE_OID, '{}-{}'.format(str(common_account['_id']), time.time()))
+    session_stored.session_store(str(key), str(common_account['_id']))
 
     return jsonify({ 'msg': 'success', 'session_key': key })
 
@@ -147,7 +123,9 @@ def password_account_sign_in():
 '''
 @app.app.route('/password/sign-out')
 def password_account_sign_out():
-    pass
+    key = request.json['session_key']
+    session_stored.session_delete(key)
+    return jsonify({ 'msg': 'success' })
 
 
 @app.app.route('/password/lock')

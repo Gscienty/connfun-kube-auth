@@ -1,5 +1,5 @@
 import redis
-from redis_connetion_pool import redis_connetion_pool
+from my_redis_connpool import redis_connetion_pool
 
 def account_temporary_attempt_times(common_account_id):
     r = redis.Redis(connection_pool=redis_connetion_pool)
