@@ -30,6 +30,10 @@ spec:
                 value: "connfun-auth-mongo-master-service.default"
               - name: REDIS_HOST
                 value: "connfun-auth-redis-master-service.default"
+              - name: WECHAT_APP_ID
+                value: "wechat app id"
+              - name: WECHAT_APP_SECRET
+                value: "wechat app secret"
 ---
 apiVersion: v1
 kind: Service

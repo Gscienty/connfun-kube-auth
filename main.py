@@ -1,5 +1,5 @@
 import app
-import password
+import common_enter, common_role_enter, password_enter, wechat_enter
 
 
 if __name__ == '__main__':

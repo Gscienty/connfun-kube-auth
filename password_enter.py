@@ -27,7 +27,7 @@ def register_password_account():
 
     common_account_id = mongo_client.common_account.insert_one({
         'support': [ 'password' ],
-        'role': [ ],
+        'roles': [ ],
         'lock_expired': 0
         }).inserted_id
 
@@ -118,21 +118,30 @@ def password_account_sign_in():
 '''
     Header Content-Type: application/json
     Body {
-        "session_key": "...
+        "username": "...",
+        "roles": [ "..." ]
     }
 '''
-@app.app.route('/password/sign-out')
-def password_account_sign_out():
-    key = request.json['session_key']
-    session_stored.session_delete(key)
+@app.app.route('/password/role/add')
+def password_account_role_add():
+    db = mongo_client_builder.build_mongo_client()
+    password_account = db.password_account.find_one({ 'account_name': request.json['username'] })
+    if not password_account:
+        return jsonify({ 'msg': 'account not exist' }), 404
+    common_account = db.common_account.find_one({ "_id": password_account['refer_account_id'] })
+    if not common_account:
+        return jsonify({ 'msg': 'common account not exist' }), 404
+
+    roles = set()
+    for role in common_account['roles']:
+        roles.add(role)
+    for role in request.json['roles']:
+        roles.add(role)
+    roles_list = []
+    for role in roles:
+        roles_list.append(role)
+
+    db.common_account.update({ '_id': common_account['_id'] }, { 'roles': roles_list })
+
     return jsonify({ 'msg': 'success' })
 
-
-@app.app.route('/password/lock')
-def password_account_lock():
-    pass
-
-
-@app.app.route('/password/unlock')
-def password_account_unlock():
-    pass
