@@ -4,6 +4,9 @@ import mongo_client_builder
 from flask import request, jsonify
 import hashlib
 import time
+import os
+import uuid
+import account_temporary_locked
 
 '''
 required:
@@ -121,18 +124,27 @@ def password_account_sign_in():
     if account['hash_algo'] == 'md5':
         hashed_password = hashlib.md5(request.json['password']).hexdigest().upper()
         if hashed_password != account['password']:
+            account_temporary_locked.account_temporary_attempt_times_inc(common_account['_id'], 24 * 60 * 60)
             return jsonify({ 'msg': 'password error' }), 400
     else:
         return jsonify({ 'msg': 'unsupport hash algo' }), 500
 
-    # TODO temporary lock check
+    attempt_times = account_temporary_locked.account_temporary_attempt_times(common_account['_id'])
+    if attempt_times >= int(os.getenv('ATTEMPT_SIGN_IN_TIMES')):
+        return jsonify({ 'msg': 'account locked' }), 403
 
-    # TODO session store
+    key = uuid.uuid5(common_account['_id'], '{}'.format(time.time()))
+    session_stored.password_session_store(key, common_account['_id'])
 
-    # TODO return session key
-    return jsonify({ 'msg': 'success', 'session_key': '' })
+    return jsonify({ 'msg': 'success', 'session_key': key })
 
 
+'''
+    Header Content-Type: application/json
+    Body {
+        "session_key": "...
+    }
+'''
 @app.app.route('/password/sign-out')
 def password_account_sign_out():
     pass

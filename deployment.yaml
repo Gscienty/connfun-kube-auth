@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: connfun-kube-auth
+    namespace: default
+spec:
+    selector:
+        matchLabels:
+            app: connfun-kube-auth
+            release: dev
+    template:
+        metadata:
+            labels:
+                app: connfun-kube-auth
+                release: dev
+        spec:
+            containers:
+            - name: connfun-kube-auth-container
+              image: connfun.com/auth:latest
+              imagePullPolicy: Never
+              ports:
+              - name: http
+                containerPort: 5000
+              env:
+              - name: ATTEMPT_SIGN_IN_TIMES
+                value: 10
+              - name: MONGO_HOST
+                value: ""
+              - name: REDIS_HOST
+                value: ""
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: connfun-kube-auth-service
+    labels:
+        name: connfun-kube-auth-service
+spec:
+    selector:
+        app: connfun-kube-auth
+        release: dev
+    ports:
+    - port: 5000
+      protocol: TCP
+      targetPort: 5000
