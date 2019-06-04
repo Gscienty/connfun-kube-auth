@@ -31,6 +31,10 @@ def register_password_account():
         'lock_expired': 0
         }).inserted_id
 
+    mongo_client.user_profile.insert_one({
+        'refer_account_id': common_account_id
+        })
+
     hash_type = request.json['hash_algo'].lower()
     if hash_type == 'md5':
         hashed_password = hashlib.md5(request.json['password'].encode(encoding='UTF-8')).hexdigest().upper()
